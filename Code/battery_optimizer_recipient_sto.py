@@ -8,8 +8,6 @@ import numpy as np
 import pandas as pd
 import timeit
 import sys
-from IPython.display import display
-import random
 from decimal import Decimal, getcontext
 getcontext().prec = 5
 import warnings
@@ -35,7 +33,7 @@ BESSSOC_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Model
 ACHAT_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/achat.csv'
 
 # Paramètres ---------------------------------------------------------------------------------------------------
-BESS_MAX_TEST = (0, 6, 10, 14) # Les différentes capacités maximal des batteries que l'on test (Il faut que ça soit cohérent avec le dictionnaire des CAPEX)
+BESS_MAX_TEST = (0, 6, 10, 14) # Les différentes capacités maximales des batteries que l'on teste (Il faut que ça soit cohérent avec le dictionnaire des CAPEX)
 PERIODS = 8760 # 
 EPSILON = 1e-5
 malus_vente =  1 - EPSILON # Malus sur la vente par rapport à l'achat
@@ -68,7 +66,6 @@ df_prodvalues = pd.read_csv(PRODVALUES_DIR, delimiter=',')
 df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
 df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
 df_prodvalues['share wind'] = df_prodvalues['prod eolien']/df_prodvalues['prod totale']
-# display(df_prodvalues.iloc[0:60])
 # df_prodvalues.loc[df_prodvalues['Rload'] < 50000, 'Prix elec'] = -6.06971624956 + 6.98511187179e-05*(df_prodvalues['Rload']) - 1.57793342889*df_prodvalues['share solar'] - 1.06511552798*df_prodvalues['share wind']
 df_prodvalues.loc[df_prodvalues['Rload'] < 150000, 'Prix elec'] = 2.63225434198 + 3.2477216102e-05*(df_prodvalues['Rload']) - 0.54220999006*df_prodvalues['share solar'] - 4.12400593849*df_prodvalues['share wind']
 ELECPRICE = df_prodvalues['Prix elec'].round(3).tolist()
