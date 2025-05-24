@@ -33,7 +33,7 @@ OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
 
 DEMANDM_PATH = OUTPUT_GAMS_DIR / "demandM.csv"
 DEMANDFOYER_PATH = INPUT_PYTHON_DIR / f"Demande Foyer-{annee_conso_foyer}.csv"
-PRODPV_PATH = INPUT_PYTHON_DIR / "Prod PV foyer.csv"
+PRODPV_PATH = INPUT_PYTHON_DIR / "dispo_python.csv"
 PRODVALUES_PATH = OUTPUT_GAMS_DIR / "prodValues.csv"
 
 BESSSOC_PATH = INPUT_GAMS_DIR / "bessSOC.csv"
@@ -43,11 +43,15 @@ ACHAT_PATH = INPUT_GAMS_DIR / "achat.csv"
 BESS_MAX_TEST = (0, 6, 10, 14) # Les différentes capacités maximales des batteries que l'on teste (Il faut que ça soit cohérent avec le dictionnaire des CAPEX)
 PERIODS = 8760 # 
 EPSILON = 1e-5
+
 malus_vente =  1 - EPSILON # Malus sur la vente par rapport à l'achat
 malus_achat = 1 + EPSILON
 max_vente = 10 # Test de vente maximal (pour limiter le nombre de calcul)
 bess_opex = 0+EPSILON # OPEX
 bess_capex = {0:0, 6:5300, 10:6400, 14:7500} # € - Prix des Beem battery (kWh:€)
+
+PV_capa = 2.8 # kWc
+
 turpe = 0.06 # €/kWh
 taxes = 0.3 # % 
 
@@ -81,7 +85,7 @@ ELECPRICE = df_prodvalues['Prix elec'].round(3).tolist()
 # ELECPRICE = ((df_elecprice['marginale'].div(1000)+turpe)/(1-taxes)).round(3).tolist()
 # ELECPRICE = [0.5 if 17 <= heure % 24 < 21 else 0.151 for heure in range(8760)] # TEMPORAIRE - Pour avoir des prix + haut à la pointe
 DEM = df_dem[profil].div(1000).round(2).tolist()
-PV = df_pv['P'].div(1000).round(2)
+PV = df_pv['dispo PV'].div(1000).round(2)
 PV_probs = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in 
             zip(df_pv['M-E'].div(1000).round(2).tolist(), 
                 df_pv['M'].div(1000).round(2).tolist(), 
