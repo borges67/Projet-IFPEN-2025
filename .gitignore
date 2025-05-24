@@ -1,0 +1,7 @@
+*.log
+*.lxi
+*.lst
+*.dat
+*.sh
+__pycache__/
+*.DS_Store
