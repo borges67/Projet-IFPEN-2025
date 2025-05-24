@@ -24,32 +24,18 @@ sys.setrecursionlimit(1500)
 
 annee_conso_foyer = 2021
 
-# # Chemins fichier entrée
-# DEMANDM_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/demandM.csv'
-# DEMANDFOYER_DIR = f'/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - demande Foyer-{annee_conso_foyer}.csv'
-# PRODPV_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - PV foyer.csv'
-# PRODVALUES_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/prodValues.csv'
+PROJECT_ROOT = Path(__file__).parent.parent 
 
-# # Chemins fichier sortie
-# BESSSOC_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/bessSOC.csv'
-# ACHAT_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/achat.csv'
-
-# Obtenir le chemin absolu du répertoire racine du projet
-PROJECT_ROOT = Path(__file__).parent.parent  # Adaptez selon votre structure
-
-# Chemins relatifs vers les fichiers de données
 DATA_DIR = PROJECT_ROOT / "data"
 INPUT_PYTHON_DIR = DATA_DIR / "input_residential"
 INPUT_GAMS_DIR = DATA_DIR / "input_national"
 OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
 
-# Chemins des fichiers d'entrée
 DEMANDM_PATH = OUTPUT_GAMS_DIR / "demandM.csv"
 DEMANDFOYER_PATH = INPUT_PYTHON_DIR / f"Demande Foyer-{annee_conso_foyer}.csv"
 PRODPV_PATH = INPUT_PYTHON_DIR / "Prod PV foyer.csv"
 PRODVALUES_PATH = OUTPUT_GAMS_DIR / "prodValues.csv"
 
-# Chemins des fichiers de sortie
 BESSSOC_PATH = INPUT_GAMS_DIR / "bessSOC.csv"
 ACHAT_PATH = INPUT_GAMS_DIR / "achat.csv"
 
