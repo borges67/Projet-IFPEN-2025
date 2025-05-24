@@ -50,7 +50,7 @@ max_vente = 10 # Test de vente maximal (pour limiter le nombre de calcul)
 bess_opex = 0+EPSILON # OPEX
 bess_capex = {0:0, 6:5300, 10:6400, 14:7500} # € - Prix des Beem battery (kWh:€)
 
-PV_capa = 2.8 # kWc
+PV_capa = 2.800 # Wc
 
 turpe = 0.06 # €/kWh
 taxes = 0.3 # % 
@@ -80,16 +80,12 @@ df_prodvalues['share wind'] = df_prodvalues['prod eolien']/df_prodvalues['prod t
 # df_prodvalues.loc[df_prodvalues['Rload'] < 50000, 'Prix elec'] = -6.06971624956 + 6.98511187179e-05*(df_prodvalues['Rload']) - 1.57793342889*df_prodvalues['share solar'] - 1.06511552798*df_prodvalues['share wind']
 df_prodvalues.loc[df_prodvalues['Rload'] < 150000, 'Prix elec'] = 2.63225434198 + 3.2477216102e-05*(df_prodvalues['Rload']) - 0.54220999006*df_prodvalues['share solar'] - 4.12400593849*df_prodvalues['share wind']
 ELECPRICE = df_prodvalues['Prix elec'].round(3).tolist()
-
-# demandM = list(df_elecprice['marginale'])
-# ELECPRICE = ((df_elecprice['marginale'].div(1000)+turpe)/(1-taxes)).round(3).tolist()
-# ELECPRICE = [0.5 if 17 <= heure % 24 < 21 else 0.151 for heure in range(8760)] # TEMPORAIRE - Pour avoir des prix + haut à la pointe
 DEM = df_dem[profil].div(1000).round(2).tolist()
-PV = df_pv['dispo PV'].div(1000).round(2)
+PV = (df_pv['dispo PV'] * PV_capa).round(2)
 PV_probs = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in 
-            zip(df_pv['M-E'].div(1000).round(2).tolist(), 
-                df_pv['M'].div(1000).round(2).tolist(), 
-                df_pv['M+E'].div(1000).round(2).tolist())]
+            zip((df_pv['M-E'] * PV_capa).round(2).tolist(), 
+                (df_pv['M'] * PV_capa).round(2).tolist(), 
+                (df_pv['M+E'] * PV_capa).round(2).tolist())]
 
 SEMAINES = {
     "hiver" : [list(range(72, 241)), []], 
