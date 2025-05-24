@@ -1,6 +1,8 @@
 import os
 os.system('cls' if os.name == 'nt' else 'clear')
 
+from pathlib import Path
+
 from functools import cache
 from itertools import product
 
@@ -22,15 +24,34 @@ sys.setrecursionlimit(1500)
 
 annee_conso_foyer = 2021
 
-# Chemins fichier entrée
-DEMANDM_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/demandM.csv'
-DEMANDFOYER_DIR = f'/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - demande Foyer-{annee_conso_foyer}.csv'
-PRODPV_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - PV foyer.csv'
-PRODVALUES_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/prodValues.csv'
+# # Chemins fichier entrée
+# DEMANDM_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/demandM.csv'
+# DEMANDFOYER_DIR = f'/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - demande Foyer-{annee_conso_foyer}.csv'
+# PRODPV_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Donnees_8760periodes - PV foyer.csv'
+# PRODVALUES_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/Modele_chronologique/prodValues.csv'
 
-# Chemins fichier sortie
-BESSSOC_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/bessSOC.csv'
-ACHAT_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/achat.csv'
+# # Chemins fichier sortie
+# BESSSOC_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/bessSOC.csv'
+# ACHAT_DIR = '/Users/vincentboltz/Documents/DOC_ENPC/Projet_IFPEN/Dossier_Modele_Complet_semaine/achat.csv'
+
+# Obtenir le chemin absolu du répertoire racine du projet
+PROJECT_ROOT = Path(__file__).parent.parent  # Adaptez selon votre structure
+
+# Chemins relatifs vers les fichiers de données
+DATA_DIR = PROJECT_ROOT / "data"
+INPUT_PYTHON_DIR = DATA_DIR / "input_residential"
+INPUT_GAMS_DIR = DATA_DIR / "input_national"
+OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
+
+# Chemins des fichiers d'entrée
+DEMANDM_PATH = OUTPUT_GAMS_DIR / "demandM.csv"
+DEMANDFOYER_PATH = INPUT_PYTHON_DIR / f"Demande Foyer-{annee_conso_foyer}.csv"
+PRODPV_PATH = INPUT_PYTHON_DIR / "Prod PV foyer.csv"
+PRODVALUES_PATH = OUTPUT_GAMS_DIR / "prodValues.csv"
+
+# Chemins des fichiers de sortie
+BESSSOC_PATH = INPUT_GAMS_DIR / "bessSOC.csv"
+ACHAT_PATH = INPUT_GAMS_DIR / "achat.csv"
 
 # Paramètres ---------------------------------------------------------------------------------------------------
 BESS_MAX_TEST = (0, 6, 10, 14) # Les différentes capacités maximales des batteries que l'on teste (Il faut que ça soit cohérent avec le dictionnaire des CAPEX)
@@ -52,16 +73,16 @@ n = 15 # Durée de vie d'une batterie
 TA = 0.05 # Taux d'actualisation
 
 # Capacité de la batterie à tester
-BESS_CAPA = 60 # kWh * 10
-BESS_PUISS = 30 # kW * 10
-PRECISION = 10
+BESS_CAPA = 6 # kWh * 10
+BESS_PUISS = 3 # kW * 10
+PRECISION = 1
 
 # Données ----------------------------------------------------------------------------------------------------
 
-df_elecprice = pd.read_csv(DEMANDM_DIR, delimiter=',') 
-df_dem = pd.read_csv(DEMANDFOYER_DIR, delimiter=';') 
-df_pv = pd.read_csv(PRODPV_DIR, delimiter=',')
-df_prodvalues = pd.read_csv(PRODVALUES_DIR, delimiter=',')
+df_elecprice = pd.read_csv(DEMANDM_PATH, delimiter=',') 
+df_dem = pd.read_csv(DEMANDFOYER_PATH, delimiter=';') 
+df_pv = pd.read_csv(PRODPV_PATH, delimiter=',')
+df_prodvalues = pd.read_csv(PRODVALUES_PATH, delimiter=',')
 
 df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
 df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
@@ -255,7 +276,7 @@ def annual_behavior(Bmax: int) :
 
 df = annual_behavior(BESS_CAPA)
 
-display(df.iloc[158:200])
+# display(df.iloc[158:200])
 print(f"Taille finale : {len(df)} lignes")
 
 # # Affichage des résultats
@@ -307,12 +328,12 @@ full_year_df["SOC_injectee"] = (
     )
     .round(2))
 df_subset = full_year_df[["SOC_injectee"]].copy()
-df_subset.to_csv(BESSSOC_DIR, index=True, header=False)
+df_subset.to_csv(BESSSOC_PATH, index=True, header=False)
 
 # Exporter les valeurs d'achat d'électricité pour les BESS pour le modèle GAMS
 full_year_df['Achat batterie'] = (full_year_df['Achat'] + full_year_df['Prod PV'] - full_year_df['Demande']).clip(lower=0)
 df_subset = full_year_df[["Achat batterie"]].copy().round(3)
-df_subset.to_csv(ACHAT_DIR, index=True, header=False)
+df_subset.to_csv(ACHAT_PATH, index=True, header=False)
 
 # --------------------------------------------------------------------------------------------------------------
 # Affichage du temps d'exécution
