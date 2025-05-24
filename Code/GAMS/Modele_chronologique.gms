@@ -1,14 +1,17 @@
 * Pour tous les problèmes MIP (Mixed-Integer Programming, GAMS utilisera le solveur CPLEX au lieu du solveur par défaut)
 option mip=cplex
 
-* Fichiers externes (chemins relatifs)
-$setglobal bessSOC_csv bessSOC.csv
-$setglobal achat_csv achat.csv
+* Imports
+$setglobal bessSOC_csv ../../data/input_national/bessSOC.csv
+$setglobal achat_csv ../../data/input_national/achat.csv
+$setglobal demandeNAT_csv ../../data/input_national/Demande Nat.csv
+$setglobal dispo_PV_csv ../../data/input_national/dispo_PV_gams.csv
+$setglobal dispo_eolien_csv ../../data/input_national/dispo_eolien_gams.csv
+
+* Exports
 $setglobal demandM_csv demandM.csv
 $setglobal results_csv results.csv
 $setglobal prodValues_csv prodValues.csv
-$setglobal demandeNAT_csv Donnees_8760periodes - demande Nat.csv
-$setglobal prodPV_csv Données_8760periods - PV foyer - export_gams.csv
 
 * -------------------------------------------------------------------------------------------------------------------------------
 * --------- Périodes
@@ -70,7 +73,7 @@ loop(iunit, capini(iunit)=1000*capini(iunit));
 
 Scalar nb_bess Nombte de maisons équipées de batteries / 0 /;
 
-* Disponibilité  -------------------------------------------------- (À modifier) ------------------------------
+* Disponibilité  -------------------------------------------------------------------------------
 parameter dispo(iunit, t) Disponibilité de chaque centrale en fonction de la période ;
 loop(t, loop(iunit, dispo(iunit, t) = 1) ;);
 dispo("NPP", t) = 0.90 ;
@@ -82,34 +85,32 @@ dispo("WPO", t) = 0.30 ;
 *dispo("IPVP", t) = 0.15 ;
 dispo("IPO", t) = 1.00 ;
 
-scalar PV_puiss / 2800/;
-
-PARAMETER prodPV(t) MW
+PARAMETER dispo_PV(t) %
 /
 $ondelim
-$include %prodPV_csv%
+$include %dispo_PV_csv%
 $offdelim
 /;
 
 loop(t, dispo("PVP", t) =
-    (prodPV(t)/PV_puiss)
+    dispo_PV(t)
 );
 
 loop(t, dispo("IPVP", t) =
-    (dispoPV(t)/resiPV_puiss)
+    dispo_PV(t)
 );
 
 scalar Eolien_puiss / 2800/;
 
-PARAMETER prodEolien(t) MW
+PARAMETER dispo_eolien(t) %
 /
 $ondelim
-$include %prodEolien_csv%
+$include %dispo_eolien_csv%
 $offdelim
 /;
 
 loop(t, dispo("WPO", t) =
-    (prodEolien(t)/Eolien_puiss)
+    dispo_eolien(t) 
 );
 
 set interunitfuel(iunit,ifuel) Combustible de chaque centrale
