@@ -10,11 +10,16 @@ import numpy as np
 import pandas as pd
 import timeit
 import sys
+
+# Limite le nombre de decimales
 from decimal import Decimal, getcontext
 getcontext().prec = 5
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Evite les messages d'erreur de pandas
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning) 
+
+# Note le temps de calcul
 start = timeit.default_timer()
 sys.setrecursionlimit(1500)
 
@@ -55,7 +60,7 @@ PV_capa = 2.800 # Wc
 turpe = 0.06 # €/kWh
 taxes = 0.3 # % 
 
-sto = False # Calcul stochastique ou pas (sur le solaire)
+sto = True # Calcul stochastique ou pas (sur le solaire)
 profil = 'RES11 (+ RES11WE)' # RES11 (+ RES11WE) | RES2 (+ RES5) | RES2WE | RES3 | RES4
 
 # Calcul eco
@@ -63,9 +68,9 @@ n = 15 # Durée de vie d'une batterie
 TA = 0.05 # Taux d'actualisation
 
 # Capacité de la batterie à tester
-BESS_CAPA = 6 # kWh * 10
-BESS_PUISS = 3 # kW * 10
-PRECISION = 1
+BESS_CAPA = 60 # kWh ou 10 kWh (dépendemment de la précision)
+BESS_PUISS = 30 # kW ou 10 kWh (dépendemment de la précision)
+PRECISION = 10
 
 # Données ----------------------------------------------------------------------------------------------------
 
@@ -89,18 +94,79 @@ PV_probs = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in
 
 SEMAINES = {
     "hiver" : [list(range(72, 241)), []], 
-    "printemps" : [list(range(2256, 2425)), []],
-    "ete" : [list(range(4440, 4609)), []],
-    "automne" : [list(range(6624, 6793)), []]
+    # "printemps" : [list(range(2256, 2425)), []],
+    # "ete" : [list(range(4440, 4609)), []],
+    # "automne" : [list(range(6624, 6793)), []]
 }
 
 # --------------------------------------------------------------------------------------------------------------
 #  Fonctions ---------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
 
-memo = {}
+def price_elec(df) -> list : 
+    return df
+
 @cache
-def dp_charge_vente(t: int, end:int, soc: int, Bmax: int):
+def dp_charge_vente_zero(t: int, end:int) -> list :
+    if t > end:
+        return (0, None)
+    
+    min_cost = float('inf')
+    best_action = None
+
+    expected_cost = 0
+
+    for PV_val, prob in PV_probs[t] : 
+        energie_dispo = PV_val
+        demande = DEM[t]
+        A = max(demande - energie_dispo, 0)
+
+        scenario_cost = prob * A * ELECPRICE[t]
+        future_cost, _ = dp_charge_vente_zero(t+1, end)
+        expected_cost += scenario_cost + prob * future_cost
+    
+    if expected_cost < min_cost : 
+        min_cost = expected_cost
+        best_action = (0, 0)
+    
+    return (min_cost, best_action)
+
+@cache
+def dp_charge_vente_sto(t: int, end:int, soc: int, Bmax: int) -> list :
+    if t > end:
+        return (0, None)
+    
+    min_cost = float('inf')
+    best_action = None
+
+    # Bornes de X1 basées sur la puissance max
+    min_X1 = int(max(0, soc*PRECISION - BESS_PUISS))
+    max_X1 = int(min(Bmax, soc*PRECISION + BESS_PUISS))
+
+    for X1_10 in range(min_X1, max_X1+1) : 
+        for V_10 in range(BESS_PUISS + 1 - int(abs(X1_10/PRECISION - soc))) : 
+            expected_cost = 0
+            X1 = X1_10/PRECISION
+            V = V_10/PRECISION
+            for PV_val, prob in PV_probs[t] : 
+                energie_dispo = PV_val + soc
+                demande = DEM[t] + V + X1
+                A = max(demande - energie_dispo, 0)
+
+                new_soc = min(Bmax, X1)
+
+                scenario_cost = prob * ((abs(X1-soc))*bess_opex + (A*malus_achat - V*malus_vente)*ELECPRICE[t])
+                future_cost, _ = dp_charge_vente_sto(t+1, end, new_soc, Bmax)
+                expected_cost += scenario_cost + prob * future_cost
+
+            if expected_cost < min_cost : 
+                min_cost = expected_cost
+                best_action = (X1_10, V_10)
+    
+    return (min_cost, best_action)
+
+@cache
+def dp_charge_vente(t: int, end:int, soc: int, Bmax: int) -> list :
     if t > end:
         return (0, None)
     
@@ -111,71 +177,35 @@ def dp_charge_vente(t: int, end:int, soc: int, Bmax: int):
     min_X1 = int(max(0, soc*PRECISION - BESS_PUISS))
     max_X1 = int(min(Bmax, soc*PRECISION + BESS_PUISS))
     
-    if sto :
-        if Bmax == 0 : 
-            expected_cost = 0
-            for PV_val, prob in PV_probs[t-1] : 
-                energie_dispo = PV_val
-                demande = DEM[t-1]
-                A = max(demande - energie_dispo, 0)
+    for X1_10 in range(min_X1, max_X1+1) : 
+        for V_10 in range(BESS_PUISS + 1 - int(abs(X1_10/PRECISION - soc))) : 
+        # for V in range(max_vente + 1 - int(max(0, X1_10/PRECISION - soc))) : 
+            X1 = X1_10/PRECISION
+            V = V_10/PRECISION
+            energie_dispo = PV[t] + soc
+            demande = DEM[t] + V + X1
+            A = max(demande - energie_dispo, 0)
+            well = max(0, PV[t] - demande + soc)
 
-                scenario_cost = prob * A * ELECPRICE[t-1]
-                future_cost, _ = dp_charge_vente(t+1, end, 0, Bmax)
-                expected_cost += scenario_cost + prob * future_cost
-            
-            if expected_cost < min_cost : 
-                min_cost = expected_cost
-                best_action = (0, 0)
+            new_soc = min(Bmax, X1)
 
-        elif Bmax != 0 :
-            for X1 in range(Bmax+1) : 
-                for V in range(max_vente) : 
-                    expected_cost = 0
-                    for PV_val, prob in PV_probs[t-1] : 
-                        energie_dispo = PV_val + soc
-                        demande = DEM[t-1] + V + (X1/PRECISION)
-                        A = max(demande - energie_dispo, 0)
+            current_cost = ( (abs(X1-soc))*bess_opex + (A*malus_achat - V*malus_vente)*ELECPRICE[t] )
+            future_cost, _ = dp_charge_vente(t+1, end, new_soc, Bmax) # Équation de Bellman
+            total_cost = current_cost + future_cost
 
-                        new_soc = min(Bmax, (X1/PRECISION))
-
-                        scenario_cost = prob * (X1*bess_opex + (A*malus_achat - V*malus_vente)*ELECPRICE[t-1])
-                        future_cost, _ = dp_charge_vente(t+1, end, new_soc, Bmax)
-                        expected_cost += scenario_cost + prob * future_cost
-
-                    if expected_cost < min_cost : 
-                        min_cost = expected_cost
-                        best_action = (X1, V)
-    
-    else : 
-        for X1_10 in range(min_X1, max_X1+1) : 
-            for V_10 in range(BESS_PUISS + 1 - int(abs(X1_10/PRECISION - soc))) : 
-            # for V in range(max_vente + 1 - int(max(0, X1_10/PRECISION - soc))) : 
-                X1 = X1_10/PRECISION
-                V = V_10/PRECISION
-                energie_dispo = PV[t] + soc
-                demande = DEM[t] + V + X1
-                A = max(demande - energie_dispo, 0)
-                well = max(0, PV[t] - demande + soc)
-
-                new_soc = min(Bmax, X1)
-
-                current_cost = ( (abs(X1-soc))*bess_opex + (A*malus_achat - V*malus_vente)*ELECPRICE[t] )
-                future_cost, _ = dp_charge_vente(t+1, end, new_soc, Bmax) # Équation de Bellman
-                total_cost = current_cost + future_cost
-
-                if total_cost < min_cost:
-                    min_cost = total_cost
-                    best_action = (X1_10, V_10)
+            if total_cost < min_cost:
+                min_cost = total_cost
+                best_action = (X1_10, V_10)
 
     return (min_cost, best_action)
 
-def max_BESS_installed(BESS_MAX_TEST: int):
+def max_BESS_installed(BESS_MAX_TEST: int) :
     min_total = float('inf')
     best = None
     cost_zero = 0
     for Bmax in BESS_MAX_TEST :
         if Bmax == 0 : 
-            cost_zero, _ = dp_charge_vente(1, 0, Bmax)
+            cost_zero, _ = dp_charge_vente_zero(1, 0, Bmax)
         elif Bmax != 0 : 
             cost, _ = dp_charge_vente(1, 0, Bmax)
             couts_actualises = bess_capex[Bmax] - sum(list((cost_zero - cost)/(1 + TA)**i for i in range(n))) # Coût batterie - Gains grâce à la batterie 
@@ -187,23 +217,16 @@ def max_BESS_installed(BESS_MAX_TEST: int):
 
 def weekly_behavior(Bmax: int) -> list : 
     for semaine in SEMAINES :
-        cost, best_action = dp_charge_vente(SEMAINES[semaine][0][0], SEMAINES[semaine][0][-1], 0, Bmax)
+        if sto : 
+            cost, best_action = dp_charge_vente_sto(SEMAINES[semaine][0][0], SEMAINES[semaine][0][-1], 0, Bmax)
+        else :
+            cost, best_action = dp_charge_vente(SEMAINES[semaine][0][0], SEMAINES[semaine][0][-1], 0, Bmax)
         print(semaine)
         # SEMAINES[semaine][1] = best_action
     # cost_zero, _ = dp_charge_vente(1, 0, BESS_CAPA)
     # cost, _ = dp_charge_vente(1, 0, BESS_CAPA)
     # couts_actualises = bess_capex[BESS_CAPA] - sum(list((cost_zero - cost)/(1 + TA)**i for i in range(n))) # Coût batterie - Gains grâce à la batterie 
     return None
-
-
-# --------------------------------------------------------------------------------------------------------------
-#  Appel & affichage -------------------------------------------------------------------------------------------
-# --------------------------------------------------------------------------------------------------------------
-
-# min_cost, min_capex, min_total_cost, best_Bmax = max_BESS_installed(BESS_MAX_TEST)
-# weekly_behavior(BESS_CAPA)
-
-# cost, best_action = dp_charge_vente(50, 218, 0, BESS_CAPA)
 
 def annual_behavior(Bmax: int) :
     df_base = pd.DataFrame(columns=['Saison', 'Date', 'Heure', 'Demande', 'Prod PV', 'SOC_t', 'Vente', 'Achat', 'Well', 'Prix elec'])
@@ -215,7 +238,13 @@ def annual_behavior(Bmax: int) :
         end = SEMAINES[semaine][0][-1]
 
         #Execution de la fonction d'optimisation
-        dp_charge_vente(start, end, 0, Bmax)
+        if sto : 
+            if Bmax == 0 :
+                dp_charge_vente_zero(start, end)
+            else :
+                dp_charge_vente_sto(start, end, 0, Bmax)
+        else :
+            dp_charge_vente(start, end, 0, Bmax)
 
         # Simulation pour récupérer l'historique
         current_soc = 0
@@ -226,7 +255,14 @@ def annual_behavior(Bmax: int) :
 
         for t in range(start, end):
             history_soc.append(current_soc)
-            _, best_action = dp_charge_vente(t, end, current_soc, Bmax)
+            if sto : 
+                    if Bmax == 0 :
+                        _, best_action = dp_charge_vente_zero(t, end)
+                    else :
+                        _, best_action = dp_charge_vente_sto(t, end, current_soc, Bmax)
+            else :
+                _, best_action = dp_charge_vente(t, end, current_soc, Bmax)
+            # _, best_action = dp_charge_vente(t, end, current_soc, Bmax)
             if best_action is None:
                 break
             X1_10, V_10 = best_action
@@ -260,17 +296,19 @@ def annual_behavior(Bmax: int) :
 
     return df_base
 
+# --------------------------------------------------------------------------------------------------------------
+#  Appel & affichage -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------
+
+# min_cost, min_capex, min_total_cost, best_Bmax = max_BESS_installed(BESS_MAX_TEST)
+# weekly_behavior(BESS_CAPA)
+
+# cost, best_action = dp_charge_vente(50, 218, 0, BESS_CAPA)
+
 df = annual_behavior(BESS_CAPA)
 
 # display(df.iloc[158:200])
 print(f"Taille finale : {len(df)} lignes")
-
-# # Affichage des résultats
-# print('\033[1m' + "\nResultats : " + '\033[0m')
-# print(f"Cout minimal du systeme : {min_total_cost:.2f} (CAPEX = {min_capex:.2f}, Autres couts = {min_cost:.2f})")
-# print(f"Nombre de batteries installees : {best_Bmax}")
-# print('\033[1m' + "\nHistorique sous forme de DataFrame : " + '\033[0m')
-# print(df)
     
 # # --------------------------------------------------------------------------------------------------------------
 # #  Export ------------------------------------------------------------------------------------------------------
