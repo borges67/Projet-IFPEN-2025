@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import timeit
 import sys
+import math
+import random
 
 # Limite le nombre de decimales
 from decimal import Decimal, getcontext
@@ -74,10 +76,10 @@ PRECISION = 10
 
 # Données ----------------------------------------------------------------------------------------------------
 
-df_elecprice = pd.read_csv(DEMANDM_PATH, delimiter=',') 
-df_dem = pd.read_csv(DEMANDFOYER_PATH, delimiter=';') 
-df_pv = pd.read_csv(PRODPV_PATH, delimiter=',')
-df_prodvalues = pd.read_csv(PRODVALUES_PATH, delimiter=',')
+df_elecprice = pd.read_csv(DEMANDM_PATH, sep=',') 
+df_dem = pd.read_csv(DEMANDFOYER_PATH, sep=';') 
+df_pv = pd.read_csv(PRODPV_PATH, sep=',')
+df_prodvalues = pd.read_csv(PRODVALUES_PATH, sep=',')
 
 df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
 df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
@@ -94,17 +96,39 @@ PV_probs = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in
 
 SEMAINES = {
     "hiver" : [list(range(72, 241)), []], 
-    # "printemps" : [list(range(2256, 2425)), []],
-    # "ete" : [list(range(4440, 4609)), []],
-    # "automne" : [list(range(6624, 6793)), []]
+    "printemps" : [list(range(2256, 2425)), []],
+    "ete" : [list(range(4440, 4609)), []],
+    "automne" : [list(range(6624, 6793)), []]
 }
+
+transition_matrix = {'p11_solar' : 7.349472, 'p11_wind' : 14.28572, 'p21_solar' : -13.9232, 'p21_wind' : -17.944}
 
 # --------------------------------------------------------------------------------------------------------------
 #  Fonctions ---------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
 
-def price_elec(df) -> list : 
-    return df
+def elec_price(t, regime_precedent) -> list : 
+    # Transition probabilites from one regime to the other
+    p11 = 1/(1+math.exp(-transition_matrix['p11_solar']*df_prodvalues['share solar']-transition_matrix['p11_wind']*df_prodvalues['share wind']))
+    p12 = 1/(1+math.exp(-transition_matrix['p21_solar']*df_prodvalues['share solar']-transition_matrix['p21_wind']*df_prodvalues['share wind']))
+    p21 = 1 - p11
+    p22 = 1 - p12
+
+    # Règles de transition
+    if regime_precedent == 'Régime 1':
+        regime = random.choices(['Régime 1', 'Régime 2'], weights=[p11, p12])[0]
+    elif regime_precedent == 'Régime 2':
+        regime = random.choices(['Régime 1', 'Régime 2'], weights=[p21, p22])[0]
+
+    # Calcul du prix
+    if regime_precedent == 'Régime 1':
+        price_log = -6.06971624956 + 6.98511187179e-05*(df_prodvalues['Rload'][t]) - 1.57793342889*df_prodvalues['share solar'][t] - 1.06511552798*df_prodvalues['share wind'][t]
+        price_t = math.log(np.sinh(price_log))
+    elif regime_precedent == 'Régime 2':    
+        price_log = 2.63225434198 + 3.2477216102e-05*(df_prodvalues['Rload'][t]) - 0.54220999006*df_prodvalues['share solar'][t] - 4.12400593849*df_prodvalues['share wind'][t]
+        price_t = math.log(np.sinh(price_log))
+
+    return regime, price_t
 
 @cache
 def dp_charge_vente_zero(t: int, end:int) -> list :
@@ -327,7 +351,7 @@ def full_year_df_creation(df) :
         ('ete', 4),
         ('automne', 8),
         ('hiver', 4),
-    ]
+        ]
 
     for saison, repetitions in saisons_config:
         semaine_type = df[df['Saison'] == saison]
@@ -336,9 +360,9 @@ def full_year_df_creation(df) :
         segments.append(segment)
 
     full_year_df = pd.concat(segments, ignore_index=True)
-    journee_hiver = df[df['Saison'] == 'hiver'].head(24)
-    full_year_df = pd.concat([full_year_df, journee_hiver], ignore_index=True)
-
+    # journee_hiver = df[df['Saison'] == 'hiver'].head(24)
+    # full_year_df = pd.concat([full_year_df, journee_hiver], ignore_index=True)
+    
     full_year_df.index += 1
     return full_year_df
 
@@ -348,9 +372,7 @@ full_year_df = full_year_df_creation(df)
 full_year_df["SOC_injectee"] = (
     full_year_df.apply(
         lambda row: max(0, float(Decimal(str(row['Demande'])) + Decimal(str(row['Vente'])) - Decimal(str(row['Prod PV'])) - Decimal(str(row['Achat'])))),
-        axis=1
-    )
-    .round(2))
+        axis=1).round(2)) # opérations pour forcer l'arrondi
 df_subset = full_year_df[["SOC_injectee"]].copy()
 df_subset.to_csv(BESSSOC_PATH, index=True, header=False)
 
