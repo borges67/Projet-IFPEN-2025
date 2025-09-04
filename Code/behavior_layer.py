@@ -67,16 +67,16 @@ def annual_behavior(Bmax: int) :
         end = SEMAINES[semaine][0][-1]
 
         #Execution de la fonction d'optimisation
-        if sto : 
-            if Bmax == 0 :
-                print("Modélisation du comportement d'un système PV sans batterie")
-                batt.dp_charge_vente_zero(start, end)
-            else :
-                print("Modélisation stochastique du comportement d'un système PV-batterie")
-                batt.dp_charge_vente_sto(start, end, 0, Bmax)
-        else :
-            print("Modélisation simple du comportement d'un système PV-batterie")
-            batt.dp_charge_vente(start, end, 0, Bmax)
+        # if sto :
+        #     if Bmax == 0 :
+        #         print("Modélisation du comportement d'un système PV sans batterie")
+        #         batt.dp_charge_vente_zero(start, end)
+        #     else :
+        #         print("Modélisation stochastique du comportement d'un système PV-batterie")
+        #         batt.dp_charge_vente_sto(start, end, 0, Bmax)
+        # else :
+        print("Modélisation simple du comportement d'un système PV-batterie")
+        batt.dp_charge_vente(start, end, 0, Bmax)
 
         # Simulation pour récupérer l'historique
         current_soc = 0
@@ -97,24 +97,24 @@ def annual_behavior(Bmax: int) :
             # _, best_action = dp_charge_vente(t, end, current_soc, Bmax)
             if best_action is None:
                 break
-            X1_10, V_10 = best_action
+            X_10, V_10 = best_action
             # Calcul de l'achat
-            X1 = X1_10/PRECISION
+            X = X_10/PRECISION
             V = V_10/PRECISION
             energie_dispo = PV[t] + current_soc
-            demande = DEM[t] + V + X1
+            demande = DEM[t] + V + X
             A = max(demande - energie_dispo, 0)
             well = max(0, PV[t] - demande + current_soc)
             history_vente.append(V)
             history_achat.append(A)
             history_well.append(well)
-            new_soc = min(Bmax, X1)
+            new_soc = min(Bmax, X)
             current_soc = new_soc
 
         df_sem = pd.DataFrame({
             'Saison': [semaine] * (end - start),  # Liste de taille (end-start) remplie avec 'semaine'
             'Date': df_pv['Date'][start:end],
-            'Heure': df_pv['Heure Journée'][start:end],
+            'Heure': df_pv['Heure Journee'][start:end],
             'Demande': DEM[start:end],
             'Prod PV': PV[start:end],
             'SOC_t': history_soc,

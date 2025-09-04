@@ -89,7 +89,7 @@ cf.BESS_PUISS = cf.BESS_PUISS * cf.PRECISION # kW ou 10 kWh (dépendemment de la
 #  Importation données -----------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
 
-df_elecprice = pd.read_csv(DEMANDM_PATH, sep=',') # Coût marginal
+# df_elecprice = pd.read_csv(DEMANDM_PATH, sep=',') # Coût marginal
 df_dem = pd.read_csv(DEMANDFOYER_PATH, sep=';') # Demande
 cf.DF_PV = pd.read_csv(PRODPV_PATH, sep=',') # Producion PV
 df_pv = cf.DF_PV
@@ -99,19 +99,19 @@ df_prodvalues = pd.read_csv(PRODVALUES_PATH, sep=',') # Production nationale PV 
 df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
 df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
 df_prodvalues['share wind'] = df_prodvalues['prod eolien']/df_prodvalues['prod totale']
-# df_prodvalues.loc[df_prodvalues['Rload'] < 50000, 'Prix elec'] = ( cf.regime_1["c"] + cf.regime_1["rload"]*(df_prodvalues['Rload']) 
-# + cf.regime_1["share_solar"]*df_prodvalues['share solar'] + cf.regime_1["share_wind"]*df_prodvalues['share wind'] )
-df_prodvalues.loc[df_prodvalues['Rload'] < 150000, 'Prix elec'] = ( cf.regime_2["c"] + cf.regime_2["rload"]*(df_prodvalues['Rload']) 
-+ cf.regime_2["share_solar"]*df_prodvalues['share solar'] + cf.regime_2["share_wind"]*df_prodvalues['share wind'] )
+# df_prodvalues.loc[df_prodvalues['Rload'] < 50000, 'Prix elec'] = ( cf.REGIME_1["c"] + cf.REGIME_1["rload"]*(df_prodvalues['Rload'])
+# + cf.REGIME_1["share_solar"]*df_prodvalues['share solar'] + cf.REGIME_1["share_wind"]*df_prodvalues['share wind'] )
+df_prodvalues.loc[df_prodvalues['Rload'] < 150000, 'Prix elec'] = ( cf.REGIME_2["c"] + cf.REGIME_2["rload"]*(df_prodvalues['Rload'])
++ cf.REGIME_2["share_solar"]*df_prodvalues['share solar'] + cf.REGIME_2["share_wind"]*df_prodvalues['share wind'] )
 
 # Listes et DataFrame finaux utilisés
 cf.ELECPRICE = df_prodvalues['Prix elec'].round(3).tolist()
 cf.DEM = df_dem[cf.PROFIL_CONSO].div(1000).round(2).tolist()
-cf.PV = (df_pv['dispo PV'] * cf.PV_capa).round(2)
-cf.PV_PROBS = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in 
-            zip((df_pv['M-E'] * cf.PV_capa).round(2).tolist(), 
-                (df_pv['M'] * cf.PV_capa).round(2).tolist(), 
-                (df_pv['M+E'] * cf.PV_capa).round(2).tolist())]
+cf.PV = (df_pv['dispo PV'] * cf.PV_capa).round(2) # Production PV = disponibilité nationale * Puissance PV résidentiel
+# cf.PV_PROBS = [[(me, 0.16), (m, 0.68), (me_plus, 0.16)] for me, m, me_plus in
+#             zip((df_pv['M-E'] * cf.PV_capa).round(2).tolist(),
+#                 (df_pv['M'] * cf.PV_capa).round(2).tolist(),
+#                 (df_pv['M+E'] * cf.PV_capa).round(2).tolist())]
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -134,8 +134,8 @@ full_year_df = behavior_layer.full_year_df_creation(df)
 
 # Exporter les valeurs d'injection provenant des BESS pour le modèle GAMS
 full_year_df["SOC_injectee"] = (
-    full_year_df.apply(
-        lambda row: max(0, float(Decimal(str(row['Demande'])) + Decimal(str(row['Vente'])) - Decimal(str(row['Prod PV'])) - Decimal(str(row['Achat'])))),
+    full_year_df.apply( lambda row:
+        max(0, float(Decimal(str(row['Demande'])) + Decimal(str(row['Vente'])) - Decimal(str(row['Prod PV'])) - Decimal(str(row['Achat'])))),
         axis=1).round(2)) # opérations pour forcer l'arrondi
 df_subset = full_year_df[["SOC_injectee"]].copy()
 df_subset.to_csv(BESSSOC_PATH, index=True, header=False)

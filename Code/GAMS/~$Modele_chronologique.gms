@@ -306,7 +306,7 @@ Parameter sub(iunit) /
 *** ------------------------------------------------------------------------------------------------------
 *
 *** ------------------------------------------------------------------------------------------------------
-** Importation depuis le fichier CSV de la quantité d'électricité acheté pour les batteries
+** Importation depuis le fichier CSV de la quantité d'électricité acheté par les batteries
 *PARAMETER achat(t) kW
 */
 *$ondelim

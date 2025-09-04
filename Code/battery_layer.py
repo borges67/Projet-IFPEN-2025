@@ -4,6 +4,7 @@ os.system('cls' if os.name == 'nt' else 'clear')
 
 from functools import cache
 from config import config as cf
+import elec_price_layer
 
 # ----- Données -----
 bess_opex = cf.BESS_OPEX
@@ -125,10 +126,14 @@ def dp_charge_vente(t: int, end:int, soc: int, Bmax: int) -> list :
     
     min_cost = float('inf')
     best_action = None
+    current_regime = None
 
-    # Bornes de X1 basées sur la puissance max
+    # Bornes de X basées sur la puissance max
     min_X = int(max(0, soc*PRECISION - BESS_PUISS))
     max_X = int(min(Bmax, soc*PRECISION + BESS_PUISS))
+
+    # Prix de l'électricité
+    current_regime, price = elec_price_layer.elec_price(t, current_regime, df_prodvalues)
     
     for X_10 in range(min_X, max_X+1) : 
         for V_10 in range(BESS_PUISS + 1 - int(abs(X_10/PRECISION - soc))) : 

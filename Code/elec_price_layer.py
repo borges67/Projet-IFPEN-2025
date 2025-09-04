@@ -6,21 +6,15 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import math
+import random
 
 from config import config as cf
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import math
-import random
-
-
-
 # ----- Fonctions -----
 
-def elec_price(t: int, regime_precedent: str, df_prodvalues) -> list : 
+def elec_price(t: int, regime_precedent, df_prodvalues)  :
     transition_matrix = cf.TRANSITION_MATRIX
     regime_1 = cf.REGIME_1
     regime_2 = cf.REGIME_2
@@ -28,9 +22,21 @@ def elec_price(t: int, regime_precedent: str, df_prodvalues) -> list :
     # Configuration des paramètres du modèle
     transition_matrix = {'p11_solar': 7.349472, 'p11_wind': 14.28572, 
                         'p21_solar': -13.9232, 'p21_wind': -17.944}
-    regime_1 = {'c': -6.07, 'rload': 6.99e-05, 'share_solar': -1.58, 'share_wind': -1.07}
-    regime_2 = {'c': 2.63, 'rload': 3.25e-05, 'share_solar': -0.54, 'share_wind': -4.12}
-
+    # regime_1 = {'c': -6.07, 'rload': 6.99e-05, 'share_solar': -1.58, 'share_wind': -1.07}
+    # regime_2 = {'c': 2.63, 'rload': 3.25e-05, 'share_solar': -0.54, 'share_wind': -4.12}
+    regime_1 = {
+        'c': -6.06971624956,
+        'rload': 6.98511187179e-05,
+        'share_solar': -1.57793342889,
+        'share_wind': -1.06511552798
+    }
+    regime_2 = {
+        'c': 2.63225434198,
+        'rload': 3.2477216102e-05,
+        'share_solar': -0.54220999006,
+        'share_wind': -4.12400593849
+    }
+    moyenne_historique_prix = 32.2
 
 
     # Récupérer les valeurs pour la période t (utilisation de .iloc[t] pour éviter l'erreur)
@@ -41,10 +47,10 @@ def elec_price(t: int, regime_precedent: str, df_prodvalues) -> list :
     # Transition probabilities - utilisation de np.exp au lieu de math.exp pour gérer les arrays
     p11 = 1 / (1 + np.exp(-transition_matrix['p11_solar'] * share_solar_t - 
                          transition_matrix['p11_wind'] * share_wind_t))
-    p12 = 1 / (1 + np.exp(-transition_matrix['p21_solar'] * share_solar_t - 
+    p21 = 1 / (1 + np.exp(-transition_matrix['p21_solar'] * share_solar_t - 
                          transition_matrix['p21_wind'] * share_wind_t))
-    p21 = 1 - p11
-    p22 = 1 - p12
+    p12 = 1 - p11
+    p22 = 1 - p21
 
     # Règles de transition
     if regime_precedent == 'Régime 1':
@@ -53,26 +59,30 @@ def elec_price(t: int, regime_precedent: str, df_prodvalues) -> list :
         regime = random.choices(['Régime 1', 'Régime 2'], weights=[p21, p22])[0]
     else:
         # Initialisation
-        regime = random.choices(['Régime 1', 'Régime 2'], weights=[0.5, 0.5])[0]
+        # Probabilités stationnaires pour la période t
+        pi_1 = p21 / (p12 + p21)  # Probabilité ergodique du régime 1
+        pi_2 = 1 - pi_1
+        regime = random.choices(['Régime 1', 'Régime 2'], weights=[pi_1, pi_2])[0]
 
         # Calcul du prix selon le régime
     if regime == 'Régime 1':
         price_log = (regime_1["c"] + 
-                    regime_1["rload"] * rload_t + 
-                    regime_1["share_solar"] * share_solar_t + 
+                    regime_1["rload"] * rload_t +
+                    regime_1["share_solar"] * share_solar_t +
                     regime_1["share_wind"] * share_wind_t)
-    elif regime == 'Régime 2':
-        price_log = (regime_2["c"] + 
-                    regime_2["rload"] * rload_t + 
-                    regime_2["share_solar"] * share_solar_t + 
+    else :
+        price_log = (regime_2["c"] +
+                    regime_2["rload"] * rload_t +
+                    regime_2["share_solar"] * share_solar_t +
                     regime_2["share_wind"] * share_wind_t)
-        
-    price_t = np.log(np.sinh(price_log))
 
-    return regime, price_t, price_log
+    price = np.sinh(price_log) + moyenne_historique_prix
+
+    return regime, price
 
 
-
+# ------------------------------------------------------------------
+# todo : à supprimer
 
 DATA_DIR = cf.PROJECT_ROOT / "data"
 OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
@@ -101,11 +111,11 @@ def plot_elec_price(df_results):
 
     # 1. Prix simulé vs prix réel (si disponible)
     if 'Prix_elec' in df_results.columns:
-        axes[0].plot(df_results.index, df_results['Prix_log'], color='blue', label='Prix simulé', linewidth=1)
+        axes[0].plot(df_results.index, df_results['Prix_simule'], color='blue', label='Prix simulé', linewidth=1)
         axes[0].plot(df_results.index, df_results['Prix_elec'], color='red', label='Prix réel', linewidth=1, alpha=0.7)
         axes[0].legend()
     else:
-        axes[0].plot(df_results.index, df_results['Prix_log'], color='blue', linewidth=1)
+        axes[0].plot(df_results.index, df_results['Prix_simule'], color='blue', linewidth=1)
     axes[0].set_ylabel('Prix (€/MWh)')
     axes[0].set_title('Prix de l\'électricité: simulé vs réel')
     axes[0].grid(True, alpha=0.3)
@@ -141,14 +151,15 @@ def plot_elec_price(df_results):
     plt.show()
 
 def plot_elec_price_regime(df_results):
-    
+    import matplotlib.pyplot as plt
+
     print("=" * 50)
     print("ANALYSE STATISTIQUE DU MODÈLE")
     print("=" * 50)
 
     # Statistiques descriptives par régime
     print("\n1. STATISTIQUES PAR RÉGIME:")
-    print(df_results.groupby('Régime')['Prix_log'].describe())
+    print(df_results.groupby('Régime')['Prix_simule'].describe())
 
     # Pourcentage de temps dans chaque régime
     regime_counts = df_results['Régime'].value_counts()
@@ -159,24 +170,33 @@ def plot_elec_price_regime(df_results):
 
     # Corrélations
     if 'Prix_elec' in df_results.columns:
-        correlation = df_results['Prix_log'].corr(df_results['Prix_elec'])
+        correlation = df_results['Prix_simule'].corr(df_results['Prix_elec'])
         print(f"\n3. CORRÉLATION avec prix réel: {correlation:.3f}")
 
     print(f"\n4. CORRÉLATIONS avec variables explicatives:")
-    correlation_matrix = df_results[['Prix_log', 'share solar', 'share wind', 'Rload']].corr()
+    correlation_matrix = df_results[['Prix_simule', 'share solar', 'share wind', 'Rload']].corr()
     print(correlation_matrix)
 
-    # Graphique supplémentaire : relation prix vs énergies renouvelables
+    # Graphique avec légende catégorielle
     plt.figure(figsize=(12, 5))
-    plt.scatter(df_results['share solar'] + df_results['share wind'], 
-                df_results['Prix_simule'], 
-                c=df_results['Régime_num'], cmap='viridis', alpha=0.6)
-    plt.colorbar(label='Régime (1 ou 2)')
+
+    for regime, color in zip([1, 2], ['tab:blue', 'tab:orange']):
+        subset = df_results[df_results['Régime_num'] == regime]
+        plt.scatter(
+            subset['share solar'] + subset['share wind'],
+            subset['Prix_simule'],
+            alpha=0.6,
+            label=f"Régime {regime}",
+            color=color
+        )
+
     plt.xlabel('Part totale solaire + éolien')
     plt.ylabel('Prix simulé (€/MWh)')
     plt.title('Relation entre énergies renouvelables et prix simulé')
     plt.grid(True, alpha=0.3)
+    plt.legend(title="Régime")
     plt.show()
+
 
 # ------------------------------------------------------------------
 # SIMULATION DES PRIX AVEC LES DONNÉES RÉELLES
@@ -185,18 +205,16 @@ def plot_elec_price_regime(df_results):
 # Simulation des prix
 regimes = []
 prices = []
-prices_log = []
 current_regime = None  # Régime initial
 
 # Limiter le nombre de périodes si nécessaire pour le test
-n_periods = min(1000, len(df_prodvalues))  # Test sur les 1000 premières périodes ou moins
+n_periods = min(8736, len(df_prodvalues))  # Test sur les 1000 premières périodes ou moins
 
 for t in range(n_periods):
     try:
-        current_regime, price, price_log = elec_price(t, current_regime, df_prodvalues)
+        current_regime, price = elec_price(t, current_regime, df_prodvalues)
         regimes.append(current_regime)
         prices.append(price)
-        prices_log.append(price_log)
     except Exception as e:
         print(f"Erreur à la période {t}: {e}")
         break
@@ -204,13 +222,12 @@ for t in range(n_periods):
 # Ajout des résultats au DataFrame
 df_results = df_prodvalues.iloc[:len(prices)].copy()
 df_results['Prix_simule'] = prices
-df_results['Prix_log'] = prices_log
 df_results['Régime'] = regimes
 df_results['Régime_num'] = [1 if r == 'Régime 1' else 2 for r in regimes]
 
 
 plot_elec_price(df_results)
-
-plot_elec_price_regime(df_results)
-
-
+#
+# plot_elec_price_regime(df_results)
+#
+#
