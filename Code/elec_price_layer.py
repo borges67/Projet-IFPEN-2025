@@ -11,10 +11,9 @@ import random
 
 from config import config as cf
 
-
 # ----- Fonctions -----
 
-def elec_price(t: int, regime_precedent, df_prodvalues)  :
+def elec_price_old(t: int, regime_precedent, df_prodvalues)  :
     transition_matrix = cf.TRANSITION_MATRIX
     regime_1 = cf.REGIME_1
     regime_2 = cf.REGIME_2
@@ -22,8 +21,7 @@ def elec_price(t: int, regime_precedent, df_prodvalues)  :
     # Configuration des paramètres du modèle
     transition_matrix = {'p11_solar': 7.349472, 'p11_wind': 14.28572, 
                         'p21_solar': -13.9232, 'p21_wind': -17.944}
-    # regime_1 = {'c': -6.07, 'rload': 6.99e-05, 'share_solar': -1.58, 'share_wind': -1.07}
-    # regime_2 = {'c': 2.63, 'rload': 3.25e-05, 'share_solar': -0.54, 'share_wind': -4.12}
+
     regime_1 = {
         'c': -6.06971624956,
         'rload': 6.98511187179e-05,
@@ -36,7 +34,8 @@ def elec_price(t: int, regime_precedent, df_prodvalues)  :
         'share_solar': -0.54220999006,
         'share_wind': -4.12400593849
     }
-    moyenne_historique_prix = 32.2
+
+    moyenne_historique_prix = 32.2 # 2021
 
 
     # Récupérer les valeurs pour la période t (utilisation de .iloc[t] pour éviter l'erreur)
@@ -44,7 +43,6 @@ def elec_price(t: int, regime_precedent, df_prodvalues)  :
     share_wind_t = df_prodvalues['share wind'].iloc[t]
     rload_t = df_prodvalues['Rload'].iloc[t]
 
-    # Transition probabilities - utilisation de np.exp au lieu de math.exp pour gérer les arrays
     p11 = 1 / (1 + np.exp(-transition_matrix['p11_solar'] * share_solar_t - 
                          transition_matrix['p11_wind'] * share_wind_t))
     p21 = 1 / (1 + np.exp(-transition_matrix['p21_solar'] * share_solar_t - 
@@ -81,22 +79,23 @@ def elec_price(t: int, regime_precedent, df_prodvalues)  :
     return regime, price
 
 
+
 # ------------------------------------------------------------------
 # todo : à supprimer
 
-DATA_DIR = cf.PROJECT_ROOT / "data"
-OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
-PRODVALUES_PATH = OUTPUT_GAMS_DIR / "prodValues.csv"
-
-cf.TRANSITION_MATRIX = {'p11_solar' : 7.349472, 'p11_wind' : 14.28572, 'p21_solar' : -13.9232, 'p21_wind' : -17.944}
-cf.REGIME_1 = {'c' : -6.07, 'rload' : 6.99e-05, 'share_solar' : - 1.58, 'share_wind' : - 1.07}
-cf.REGIME_2 = {'c' : 2.63, 'rload' : 3.25e-05, 'share_solar' : - 0.54, 'share_wind' : - 4.12}
-df_prodvalues = pd.read_csv(PRODVALUES_PATH, sep=',') # Production nationale PV et éolienne
-
-#  Ajout de colonnes calculées
-df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
-df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
-df_prodvalues['share wind'] = df_prodvalues['prod eolien']/df_prodvalues['prod totale']
+# DATA_DIR = cf.PROJECT_ROOT / "data"
+# OUTPUT_GAMS_DIR = DATA_DIR / "Modele_chronologique"
+# PRODVALUES_PATH = OUTPUT_GAMS_DIR / "prodValues.csv"
+#
+# cf.TRANSITION_MATRIX = {'p11_solar' : 7.349472, 'p11_wind' : 14.28572, 'p21_solar' : -13.9232, 'p21_wind' : -17.944}
+# cf.REGIME_1 = {'c' : -6.07, 'rload' : 6.99e-05, 'share_solar' : - 1.58, 'share_wind' : - 1.07}
+# cf.REGIME_2 = {'c' : 2.63, 'rload' : 3.25e-05, 'share_solar' : - 0.54, 'share_wind' : - 4.12}
+# df_prodvalues = pd.read_csv(PRODVALUES_PATH, sep=',') # Production nationale PV et éolienne
+#
+# #  Ajout de colonnes calculées
+# df_prodvalues['Rload'] = df_prodvalues['prod totale'] - df_prodvalues['prod PV'] - df_prodvalues['prod eolien']
+# df_prodvalues['share solar'] = df_prodvalues['prod PV']/df_prodvalues['prod totale']
+# df_prodvalues['share wind'] = df_prodvalues['prod eolien']/df_prodvalues['prod totale']
 
 
 def plot_elec_price(df_results):
@@ -202,31 +201,31 @@ def plot_elec_price_regime(df_results):
 # SIMULATION DES PRIX AVEC LES DONNÉES RÉELLES
 # ------------------------------------------------------------------
 
-# Simulation des prix
-regimes = []
-prices = []
-current_regime = None  # Régime initial
+# # Simulation des prix
+# regimes = []
+# prices = []
+# current_regime = None  # Régime initial
 
-# Limiter le nombre de périodes si nécessaire pour le test
-n_periods = min(8736, len(df_prodvalues))  # Test sur les 1000 premières périodes ou moins
+# # Limiter le nombre de périodes si nécessaire pour le test
+# n_periods = min(8736, len(df_prodvalues))  # Test sur les 1000 premières périodes ou moins
 
-for t in range(n_periods):
-    try:
-        current_regime, price = elec_price(t, current_regime, df_prodvalues)
-        regimes.append(current_regime)
-        prices.append(price)
-    except Exception as e:
-        print(f"Erreur à la période {t}: {e}")
-        break
+# for t in range(n_periods):
+#     try:
+#         current_regime, price = elec_price(t, current_regime, df_prodvalues)
+#         regimes.append(current_regime)
+#         prices.append(price)
+#     except Exception as e:
+#         print(f"Erreur à la période {t}: {e}")
+#         break
 
-# Ajout des résultats au DataFrame
-df_results = df_prodvalues.iloc[:len(prices)].copy()
-df_results['Prix_simule'] = prices
-df_results['Régime'] = regimes
-df_results['Régime_num'] = [1 if r == 'Régime 1' else 2 for r in regimes]
+# # Ajout des résultats au DataFrame
+# df_results = df_prodvalues.iloc[:len(prices)].copy()
+# df_results['Prix_simule'] = prices
+# df_results['Régime'] = regimes
+# df_results['Régime_num'] = [1 if r == 'Régime 1' else 2 for r in regimes]
 
 
-plot_elec_price(df_results)
+# plot_elec_price(df_results)
 #
 # plot_elec_price_regime(df_results)
 #

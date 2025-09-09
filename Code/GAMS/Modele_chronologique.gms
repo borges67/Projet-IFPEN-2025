@@ -21,7 +21,7 @@ $setglobal prodValues_csv D:\Perso\Projet IFPEN\Projet-IFPEN-2025\data\Modele_ch
 * --------- Périodes
 * -------------------------------------------------------------------------------------------------------------------------------
 
-set t Périodes /1*8760/;
+set t Périodes /1*8736/;
 
 set hiver(t), printemps_automne(t), ete(t), juillet_aout Sous-ensemble de saisons ;
 
@@ -75,7 +75,7 @@ Parameter capini(iunit) GW /
 * On passe en MW pour exprimer les capacités installées
 loop(iunit, capini(iunit)=1000*capini(iunit));
 
-Scalar nb_bess Nombte de maisons équipées de batteries / 0 /;
+Scalar nb_bess Nombte de maisons équipées de batteries / 1000000 /;
 
 * Disponibilité  -------------------------------------------------------------------------------
 parameter dispo(iunit, t) Disponibilité de chaque centrale en fonction de la période ;
@@ -292,45 +292,45 @@ Parameter sub(iunit) /
     IPVP   0.
     /;
 
-*** ------------------------------------------------------------------------------------------------------
-** Importation depuis le fichier CSV de la quantité d'électricité provenant des batteries
-*PARAMETER bess(t) kW
-*/
-*$ondelim
-*$include %bessSOC_csv%
-*$offdelim
-*/;
-*
-** On multiplie par le nombre de maison puis on divise par 1000 pour convertir en MW
-*loop(t, bess(t) = nb_bess * bess(t) / 1000 );
-*** ------------------------------------------------------------------------------------------------------
-*
-*** ------------------------------------------------------------------------------------------------------
-** Importation depuis le fichier CSV de la quantité d'électricité acheté pour les batteries
-*PARAMETER achat(t) kW
-*/
-*$ondelim
-*$include %achat_csv%
-*$offdelim
-*/;
-*
-** On multiplie par le nombre de maison puis on divise par 1000 pour convertir en MW
-*loop(t, achat(t) = nb_bess * achat(t) / 1000 );
-*** ------------------------------------------------------------------------------------------------------
+* ------------------------------------------------------------------------------------------------------
+* Importation depuis le fichier CSV de la quantité d'électricité provenant des batteries
+PARAMETER bess(t) kW
+/
+$ondelim
+$include %bessSOC_csv%
+$offdelim
+/;
+
+* On multiplie par le nombre de maison puis on divise par 1000 pour convertir en MW
+loop(t, bess(t) = nb_bess * bess(t) / 1000 );
+* ------------------------------------------------------------------------------------------------------
+
+* ------------------------------------------------------------------------------------------------------
+* Importation depuis le fichier CSV de la quantité d'électricité acheté par les batteries
+PARAMETER achat(t) kW
+/
+$ondelim
+$include %achat_csv%
+$offdelim
+/;
+
+* On multiplie par le nombre de maison puis on divise par 1000 pour convertir en MW
+loop(t, achat(t) = nb_bess * achat(t) / 1000 );
+* ------------------------------------------------------------------------------------------------------
 
 Parameter demnetWhydro(t);
 LOOP(t, demnetWhydro(t) =
   demelec(t)
 - dispo('HYW',t)*capini('HYW')
-*- bess(t)
-*+ achat(t)
+- bess(t)
++ achat(t)
 );
 
 Parameter demnet(t);
 LOOP(t, demnet(t) =
   demelec(t)
-*- bess(t)
-*+ achat(t)
+- bess(t)
++ achat(t)
 );
 
 * -------------------------------------------------------------------------------------------------------------------------------
@@ -447,7 +447,9 @@ display demnet
 display demand.m
 display dispo
 display fuelcost4
-*display bess
+display bess
+display achat
+display dispo_PV
 
 *--- Exporter les valeurs marginales dans demandM.csv ---
 * Ouvrir un fichier pour écrire les valeurs marginales

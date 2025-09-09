@@ -21,7 +21,6 @@ class Config :
         self.EPSILON = 1e-5
         self.MALUS_VENTE = 1 - self.EPSILON
         self.MALUS_ACHAT = 1 + self.EPSILON
-        self.MAX_VENTE = 10
 
         # Paramètres de la batterie
         self.PV_capa = None # Wc
@@ -34,11 +33,12 @@ class Config :
         self.PROFIL_CONSO = None
 
         # Données de prix et production
-        self.ELECPRICE = None
+        self.ELECPRICE = []
         self.DEM = None
         self.PV = None
         self.PV_PROBS = None
         self.DF_PV = None
+        self.DF_PRODVALUES = None
 
         # Calcul économique
         self.n = None # Durée de vie d'une batterie
@@ -53,6 +53,13 @@ class Config :
 
         # Pour export
         self.DF = None
+
+        # Calcul prix
+        self.ITERATIONS = None
+        self.DURATION = 8736  # hours
+        self.SHIFT = 0  # hours
+        self.HISTORIC_ELECTRICITY_PRICE = 32.2  # €/MWh
+        self.SEED = 42
 
 
 # Instance globale unique
