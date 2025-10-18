@@ -4,7 +4,6 @@ os.system('cls' if os.name == 'nt' else 'clear')
 
 from functools import cache
 from config import config as cf
-import elec_price_layer
 
 # ----- Données -----
 bess_opex = cf.BESS_OPEX

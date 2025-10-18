@@ -205,28 +205,28 @@ def plot_elec_price_regime(df_results):
 # regimes = []
 # prices = []
 # current_regime = None  # Régime initial
-
+#
 # # Limiter le nombre de périodes si nécessaire pour le test
 # n_periods = min(8736, len(df_prodvalues))  # Test sur les 1000 premières périodes ou moins
-
+#
 # for t in range(n_periods):
 #     try:
-#         current_regime, price = elec_price(t, current_regime, df_prodvalues)
+#         current_regime, price = elec_price_old(t, current_regime, df_prodvalues)
 #         regimes.append(current_regime)
 #         prices.append(price)
 #     except Exception as e:
 #         print(f"Erreur à la période {t}: {e}")
 #         break
-
+#
 # # Ajout des résultats au DataFrame
 # df_results = df_prodvalues.iloc[:len(prices)].copy()
 # df_results['Prix_simule'] = prices
 # df_results['Régime'] = regimes
 # df_results['Régime_num'] = [1 if r == 'Régime 1' else 2 for r in regimes]
-
-
+#
+#
 # plot_elec_price(df_results)
 #
 # plot_elec_price_regime(df_results)
-#
-#
+
+

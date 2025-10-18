@@ -28,7 +28,7 @@ sys.setrecursionlimit(1500)
 
 # Importation des autres script
 from config import config as cf
-import elec_price_layer
+# import elec_price_layer
 
 # --------------------------------------------------------------------------------------------------------------
 #  Chemins -----------------------------------------------------------------------------------------------------
@@ -57,10 +57,11 @@ cf.annee_conso_foyer = 2021
 
 cf.STO = True # Calcul stochastique ou pas (sur le solaire)
 cf.PRECISION = 10 # Précision du calcul (1: unité, 10: dizième d'unité)
+cf.NB_SEM = 2 # Nombre de semaines à modéliser
 
 #  Caractéristiques batterie
 cf.PV_capa = 2.800 # Wc
-cf.BESS_OPEX = 0 # OPEX
+cf.BESS_OPEX = 0 # OPEX (epsilon déjà pris en compte)
 cf.BESS_MAX_TEST = (0, 6, 10, 14) # (0, 6, 10, 14)  Les différentes capacités maximales des batteries que l'on teste (cohérent avec BESS_CAPEX)
 cf.BESS_CAPEX = {0:0, 6:5300, 10:6400, 14:7500} # {0:0, 6:5300, 10:6400, 14:7500} € - Prix des Beem battery (kWh:€)
 cf.BESS_CAPA = 6 # kWh ou 10 kWh (dépendemment de la précision)
@@ -114,74 +115,73 @@ cf.DF_PRODVALUES = pd.read_csv(PRODVALUES_PATH, sep=",", decimal =".").replace('
 # --------------------------------------------------------------------------------------------------------------
 #  Calcul prix électricité  ------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
+print(" ----- Calcul prix électrique ----- ")
 
 import electricity_price
 
 cf.HISTORIC_ELECTRICITY_PRICE = 32.2  # €/MWh
 
-cf.ITERATIONS = 1
+cf.ITERATIONS = 1000
 cf.DURATION = cf.PERIODS  # hours
 cf.SHIFT = 0  # hours
-cf.SEED = 42
+cf.SEED = 42 # Seed pour le random
 
-# if __name__ == "__main__":
-#     electricity_price.set_seed(cf.SEED)
-#
-#     df = pd.read_csv(PRODVALUES_PATH)
-#     df["Rload"] = df["prod totale"] - df["prod PV"] - df["prod eolien"]
-#     df["share solar"] = df["prod PV"] / df["prod totale"]
-#     df["share wind"] = df["prod eolien"] / df["prod totale"]
-#
-#     rload = df["Rload"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
-#     share_solar = df["share solar"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
-#     share_wind = df["share wind"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
-#
-#     with mp.Pool(mp.cpu_count()) as pool:
-#         results = list(
-#             tqdm(
-#                 pool.starmap(
-#                     electricity_price.run_iteration,
-#                     [(rload, share_solar, share_wind) for _ in range(cf.ITERATIONS)],
-#                 ),
-#                 total=cf.ITERATIONS,
-#             )
-#         )
-#
-#     rows = [row for sublist in results for row in sublist]
-#     elecprice_df = (
-#         pd.DataFrame(rows)
-#         .groupby(["timestep"])
-#         .agg(
-#             {
-#                 "timestep": "first",
-#                 "regime": "mean",
-#                 "price": "mean",
-#             }
-#         )
-#         .reset_index(drop=True)
-#         # .to_csv("results.csv", index=False)
-#     )
-#
-#     cf.ELECPRICE = elecprice_df["price"].to_list()
-#     print("Prix de l'électricité calculés : longueur = ", len(cf.ELECPRICE))
+print("Début calcul prix électricité")
+electricity_price.set_seed(cf.SEED)
 
+df = pd.read_csv(PRODVALUES_PATH)
+df["Rload"] = df["prod totale"] - df["prod PV"] - df["prod eolien"]
+df["share solar"] = df["prod PV"] / df["prod totale"]
+df["share wind"] = df["prod eolien"] / df["prod totale"]
 
-    # plot_range = range(4440,4609)
-    # plt.figure(figsize=(30, 8))
-    # plt.plot(cf.ELECPRICE[4440:4609], 'b-', linewidth=2, label='Prix moyen')
-    # plt.xlabel('Périodes')
-    # plt.ylabel('Prix (€/MWh)')
-    # plt.title('Évolution du prix de l\'électricité\n(Moyenne sur {} tirages Markov)'.format(cf.ITERATIONS))
-    # plt.grid(True, alpha=0.3)
-    # plt.ylim(bottom = 0)
-    # plt.legend()
-    # plt.show()
+rload = df["Rload"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+share_solar = df["share solar"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+share_wind = df["share wind"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+
+results = []
+
+for i in tqdm(range(cf.ITERATIONS), total=cf.ITERATIONS):
+    result = electricity_price.run_iteration(rload, share_solar, share_wind)
+    results.append(result)
+
+rows = [row for sublist in results for row in sublist]
+elecprice_df = (
+    pd.DataFrame(rows)
+    .groupby(["timestep"])
+    .agg(
+        {
+            "timestep": "first",
+            "regime": "mean",
+            "price": "mean",
+        }
+    )
+    .reset_index(drop=True)
+)
+
+cf.ELECPRICE = elecprice_df["price"].to_list()
+print("Prix de l'électricité calculés : longueur = ", len(cf.ELECPRICE))
+
+# Visualisation (optionnelle)
+plot_range = range(4440,4609)
+plt.figure(figsize=(30, 8))
+plt.plot(cf.ELECPRICE[4440:4609], 'b-', linewidth=2, label='Prix moyen')
+plt.xlabel('Périodes')
+plt.ylabel('Prix (€/MWh)')
+plt.title('Évolution du prix de l\'électricité\n(Moyenne sur {} tirages Markov)'.format(cf.ITERATIONS))
+plt.grid(True, alpha=0.3)
+plt.ylim(bottom = 0)
+plt.legend()
+plt.show()
+
+print("Fin calcul prix électricité")
 
 
-cf.ELECPRICE = [random.randint(300, 600)/10 for t in range(cf.PERIODS)]
+# cf.ELECPRICE = [random.randint(300, 600)/10 for t in range(cf.PERIODS)]
 # --------------------------------------------------------------------------------------------------------------
 #  Modèle batterie ---------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
+print(" ----- Modèle batterie ----- ")
+
 import behavior_layer
 
 cf.DF = behavior_layer.weeks_behavior(cf.BESS_CAPA)

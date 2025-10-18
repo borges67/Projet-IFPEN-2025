@@ -14,6 +14,7 @@ class Config :
         self.PERIODS = None
         self.SEMAINES = None
         self.annee_conso_foyer = 2021
+        self.NB_SEM = 2
 
         # Caractéristiques modélisation
         self.STO = None
@@ -23,11 +24,11 @@ class Config :
         self.MALUS_ACHAT = 1 + self.EPSILON
 
         # Paramètres de la batterie
-        self.PV_capa = None # Wc
-        self.BESS_OPEX = None # €
-        self.BESS_CAPEX = None # € - Prix des Beem battery (kWh:€)
-        self.BESS_CAPA = None # kWh (PRECISION == 1) ou 10kWh (PRECISION == 10)
-        self.BESS_PUISS = None # kW (PRECISION == 1) ou 10kW (PRECISION == 10)
+        self.PV_capa = None # [Wc]
+        self.BESS_OPEX = None # [€]
+        self.BESS_CAPEX = None # [€] - Prix des Beem battery (kWh:€)
+        self.BESS_CAPA = None # [kWh] (PRECISION == 1) ou 10kWh (PRECISION == 10)
+        self.BESS_PUISS = None # [kW] (PRECISION == 1) ou 10kW (PRECISION == 10)
 
         # Données de consommation
         self.PROFIL_CONSO = None
@@ -43,8 +44,8 @@ class Config :
         # Calcul économique
         self.n = None # Durée de vie d'une batterie
         self.TA = None # Taux d'actualisation
-        self.turpe = None # €/kWh
-        self.taxes = None # % 
+        self.turpe = None # [€/kWh]
+        self.taxes = None # [% ]
 
         # Calcul prix de l'électricité (chaine de Markov)
         self.TRANSITION_MATRIX = None
@@ -56,9 +57,9 @@ class Config :
 
         # Calcul prix
         self.ITERATIONS = None
-        self.DURATION = 8736  # hours
-        self.SHIFT = 0  # hours
-        self.HISTORIC_ELECTRICITY_PRICE = 32.2  # €/MWh
+        self.DURATION = 8736  # [hours]
+        self.SHIFT = 0  # [hours]
+        self.HISTORIC_ELECTRICITY_PRICE = 32.2  # [€/MWh]
         self.SEED = 42
 
 

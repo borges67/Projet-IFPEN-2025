@@ -10,6 +10,7 @@ PRECISION = cf.PRECISION
 malus_achat = cf.MALUS_ACHAT
 malus_vente = cf.MALUS_VENTE
 sto = cf.STO
+nb_sem = cf.NB_SEM
 
 BESS_PUISS = cf.BESS_PUISS
 bess_opex = cf.BESS_OPEX
@@ -118,11 +119,16 @@ def weeks_behavior(Bmax: int) :
     return df_base
 
 def annual_behavior(Bmax: int) :
+    """
+    Comportement annuel de la batterie.
+    Entrée : nombre de semaines à modéliser.
+    """
+
     df_base = pd.DataFrame(columns=['Saison', 'Date', 'Heure', 'Demande', 'Prod PV', 'SOC_t', 'Vente', 'Achat', 'Well', 'Prix elec'])
 
     YEAR_WEEKS = {
         sem: [list(range((sem - 1) * 168, sem * 168)), []]
-        for sem in range(1, 3)  # 52 semaines
+        for sem in range(1, nb_sem + 1)  # On modélise nb_sem semaines
     }
 
     # with tqdm(total=52 * 168, desc="Progression totale", unit="heure") as pbar_total:
@@ -201,9 +207,13 @@ def annual_behavior(Bmax: int) :
 
     return df_base
 
-
-
 def full_year_df_creation(df) :
+    """
+    Entrée : comportement du système pour les semaines types
+    Réplication des résultats d'une semaine type pour l'ensemble de la saison qu'elle représente
+    Sortie : Comportement pour l'année entière
+    """
+
     segments = []
 
     saisons_config = [
@@ -224,3 +234,7 @@ def full_year_df_creation(df) :
     
     full_year_df.index += 1
     return full_year_df
+
+
+
+
