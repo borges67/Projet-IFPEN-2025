@@ -57,15 +57,16 @@ cf.annee_conso_foyer = 2021
 
 cf.STO = True # Calcul stochastique ou pas (sur le solaire)
 cf.PRECISION = 10 # Précision du calcul (1: unité, 10: dizième d'unité)
-cf.NB_SEM = 2 # Nombre de semaines à modéliser
+cf.NB_SEM = 52 # Nombre de semaines à modéliser
 
 #  Caractéristiques batterie
 cf.PV_capa = 2.800 # Wc
 cf.BESS_OPEX = 0 # OPEX (epsilon déjà pris en compte)
 cf.BESS_MAX_TEST = (0, 6, 10, 14) # (0, 6, 10, 14)  Les différentes capacités maximales des batteries que l'on teste (cohérent avec BESS_CAPEX)
 cf.BESS_CAPEX = {0:0, 6:5300, 10:6400, 14:7500} # {0:0, 6:5300, 10:6400, 14:7500} € - Prix des Beem battery (kWh:€)
-cf.BESS_CAPA = 6 # kWh ou 10 kWh (dépendemment de la précision)
-cf.BESS_PUISS = 3 # kW ou 10 kWh (dépendemment de la précision)
+cf.BESS_CAPA = 6 # kWh
+cf.BESS_PUISS = 3 # kW
+cf.min_SOC = 0.2 # 20% de SOC minimal
 
 # Données de consommation
 cf.PROFIL_CONSO = 'RES11 (+ RES11WE)' # RES11 (+ RES11WE) | RES2 (+ RES5) | RES2WE | RES3 | RES4
@@ -98,6 +99,7 @@ cf.REGIME_2 = {'c': 2.63225434198,
 # ----- Paramètres calculés automatiquement (à ne pas modifier) -----
 cf.bess_opex = 0 + cf.EPSILON # OPEX
 cf.BESS_CAPA = cf.BESS_CAPA * cf.PRECISION # kWh ou 10 kWh (dépendemment de la précision)
+cf.BESS_CAPA = cf.BESS_CAPA * (1 - cf.min_SOC)
 cf.BESS_PUISS = cf.BESS_PUISS * cf.PRECISION # kW ou 10 kWh (dépendemment de la précision)
 
 
@@ -110,7 +112,6 @@ cf.DEM = df_dem[cf.PROFIL_CONSO].div(1000).round(2).tolist()
 cf.DF_PV = pd.read_csv(PRODPV_PATH, sep=',') # Producion PV
 cf.PV = (cf.DF_PV['dispo PV'] * cf.PV_capa).round(2) # Production PV = disponibilité nationale * Puissance PV résidentiel
 cf.DF_PRODVALUES = pd.read_csv(PRODVALUES_PATH, sep=",", decimal =".").replace('"', '') # Production nationale PV et éolienne
-
 
 # --------------------------------------------------------------------------------------------------------------
 #  Calcul prix électricité  ------------------------------------------------------------------------------------
@@ -129,14 +130,14 @@ cf.SEED = 42 # Seed pour le random
 print("Début calcul prix électricité")
 electricity_price.set_seed(cf.SEED)
 
-df = pd.read_csv(PRODVALUES_PATH)
-df["Rload"] = df["prod totale"] - df["prod PV"] - df["prod eolien"]
-df["share solar"] = df["prod PV"] / df["prod totale"]
-df["share wind"] = df["prod eolien"] / df["prod totale"]
+df_prodvalues = pd.read_csv(PRODVALUES_PATH)
+df_prodvalues["Rload"] = df_prodvalues["prod totale"] - df_prodvalues["prod PV"] - df_prodvalues["prod eolien"]
+df_prodvalues["share solar"] = df_prodvalues["prod PV"] / df_prodvalues["prod totale"]
+df_prodvalues["share wind"] = df_prodvalues["prod eolien"] / df_prodvalues["prod totale"]
 
-rload = df["Rload"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
-share_solar = df["share solar"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
-share_wind = df["share wind"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+rload = df_prodvalues["Rload"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+share_solar = df_prodvalues["share solar"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
+share_wind = df_prodvalues["share wind"].iloc[cf.SHIFT : cf.SHIFT + cf.DURATION].to_numpy()
 
 results = []
 
@@ -161,17 +162,17 @@ elecprice_df = (
 cf.ELECPRICE = elecprice_df["price"].to_list()
 print("Prix de l'électricité calculés : longueur = ", len(cf.ELECPRICE))
 
-# Visualisation (optionnelle)
-plot_range = range(4440,4609)
-plt.figure(figsize=(30, 8))
-plt.plot(cf.ELECPRICE[4440:4609], 'b-', linewidth=2, label='Prix moyen')
-plt.xlabel('Périodes')
-plt.ylabel('Prix (€/MWh)')
-plt.title('Évolution du prix de l\'électricité\n(Moyenne sur {} tirages Markov)'.format(cf.ITERATIONS))
-plt.grid(True, alpha=0.3)
-plt.ylim(bottom = 0)
-plt.legend()
-plt.show()
+# # Visualisation (optionnelle)
+# plot_range = range(4440,4609)
+# plt.figure(figsize=(30, 8))
+# plt.plot(cf.ELECPRICE[4440:4609], 'b-', linewidth=2, label='Prix moyen')
+# plt.xlabel('Périodes')
+# plt.ylabel('Prix (€/MWh)')
+# plt.title('Évolution du prix de l\'électricité\n(Moyenne sur {} tirages Markov)'.format(cf.ITERATIONS))
+# plt.grid(True, alpha=0.3)
+# plt.ylim(bottom = 0)
+# plt.legend()
+# plt.show()
 
 print("Fin calcul prix électricité")
 
@@ -184,13 +185,13 @@ print(" ----- Modèle batterie ----- ")
 
 import behavior_layer
 
-cf.DF = behavior_layer.weeks_behavior(cf.BESS_CAPA)
-# cf.DF = behavior_layer.annual_behavior(cf.BESS_CAPA)
+# cf.DF = behavior_layer.weeks_behavior(cf.BESS_CAPA)
+cf.DF = behavior_layer.annual_behavior(cf.BESS_CAPA)
 df = cf.DF
 print(f"Taille finale : {len(df)} lignes")
 
 def export_df_for_graph() :
-    return df, cf.SEMAINES
+    return df, df_prodvalues, elecprice_df, cf.SEMAINES
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -206,16 +207,19 @@ full_year_df["SOC_injectee"] = (
         max(0, float(Decimal(str(row['Demande'])) + Decimal(str(row['Vente'])) - Decimal(str(row['Prod PV'])) - Decimal(str(row['Achat'])))),
         axis=1).round(2)) # opérations pour forcer l'arrondi
 df_subset = full_year_df[["SOC_injectee"]].copy()
+df_subset.index = df_subset.index + 1
 df_subset.to_csv(BESSSOC_PATH, index=True, header=False)
 
 # Exporter les valeurs d'achat d'électricité pour les BESS pour le modèle GAMS
-full_year_df['Achat batterie'] = (full_year_df['Achat'] + full_year_df['Prod PV'] - full_year_df['Demande']).clip(lower=0)
+full_year_df['Achat batterie'] = 0 #(full_year_df['Achat'] + full_year_df['Prod PV'] - full_year_df['Demande']).clip(lower=0)
 df_subset = full_year_df[["Achat batterie"]].copy().round(3)
+df_subset.index = df_subset.index + 1
 df_subset.to_csv(ACHAT_PATH, index=True, header=False)
 
 # Affichage du temps d'exécution
-# os.system( "say bip" ) # Fait un petit bruit à la fin
 stop = timeit.default_timer()
 print(f'\nTime: {round(stop - start, 2)}', )
+# os.system( "say bip" ) # Fait un petit bruit à la fin
+
 
 

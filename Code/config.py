@@ -14,7 +14,7 @@ class Config :
         self.PERIODS = None
         self.SEMAINES = None
         self.annee_conso_foyer = 2021
-        self.NB_SEM = 2
+        self.NB_SEM = None
 
         # Caractéristiques modélisation
         self.STO = None
@@ -29,6 +29,8 @@ class Config :
         self.BESS_CAPEX = None # [€] - Prix des Beem battery (kWh:€)
         self.BESS_CAPA = None # [kWh] (PRECISION == 1) ou 10kWh (PRECISION == 10)
         self.BESS_PUISS = None # [kW] (PRECISION == 1) ou 10kW (PRECISION == 10)
+        self.min_SOC = None # minimal de SOC
+
 
         # Données de consommation
         self.PROFIL_CONSO = None
@@ -51,6 +53,7 @@ class Config :
         self.TRANSITION_MATRIX = None
         self.REGIME_1 = None
         self.REGIME_2 = None
+        self.REGIME_MOYEN = None
 
         # Pour export
         self.DF = None
